@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html lang='en'>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/vue@3"></script>
+
+    <title>Nauts in Space</title>
+
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;600&display=swap');
+
+      * {
+        font-family: 'Comfortaa', cursive;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      
+      #app {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        min-height: 100vh;
+        position: relative;
+
+        justify-content: center;
+        align-items: center;
+      }
+
+      .astronaut-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2em;
+        padding: 2em;
+        width: 100%;
+        max-width: 30em;
+        margin-bottom: 2em;
+      }
+
+      .astronaut-entry {
+        display: flex;
+        backdrop-filter: blur(8px) saturate(1.2);
+        background-color: rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 0.5em;
+        text-decoration: none;
+        transform: scale(1);
+        border-radius: 0.5em;
+        overflow: hidden;
+        box-shadow: 0 0 0 0 #37fbc7, 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+
+        transition: 0.2s all;
+      }
+
+      .astronaut-entry:hover,
+      .astronaut-entry:active {
+        box-shadow: 0 0 0 0.2em #37fbc7, 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+        transform: scale(1.015);
+      }
+
+      .astronaut-photo {
+        background-size: cover;
+        background-position: top center;
+        height: 10em;
+        width: 8em;
+        border-radius: 0.5em;
+        background-color: black;
+      }
+
+      .astronaut-details,
+      .astronaut-details-wrapper {
+        display: flex;
+        align-items: center;
+      }
+
+      .astronaut-details-wrapper {
+        flex-direction: column;
+        align-items: flex-start;
+        padding-left: 2em;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+
+      .astronaut-name {
+        font-size: 1.7em;
+        margin-bottom: 0.5em;
+      }
+
+      .astronaut-craft {
+        font-size: 1em;
+      }
+
+      .daily-image {
+        width: 100vw;
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: -1;
+        background: black;
+        background-size: cover;
+        background-position: center;
+      }
+
+      .daily-image-caption {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100vw;
+        display: flex;
+        justify-content: center;
+        background-color: rgba(0, 0, 0, 0.5);
+        box-sizing: border-box;
+        padding: 1em 0;
+        backdrop-filter: blur(8px) saturate(1.2);
+      }
+
+      .daily-image-caption-wrapper {
+        display: flex;
+        gap: 1.5em;
+        font-size: 0.7em;
+        color: rgba(255, 255, 255, 0.7);
+      }
+    </style>
+  </head>
+  <body>
+    <div id='app'>
+      <div class='astronaut-list'>
+        <a class='astronaut-entry' v-for='astronaut in getAstronauts' :href='astronaut.url' target='_blank'>
+          <div class='astronaut-photo' :style='{ backgroundImage: `url("${astronaut.photo}")` }'></div>
+          <div class='astronaut-details'>
+            <div class='astronaut-details-wrapper'>
+              <span class='astronaut-name'>{{ astronaut.name }}</span>
+              <span class='astronaut-craft'>{{ astronaut.craft }}</span>
+            </div>
+          </div>
+        </a>
+      </div>
+      <div v-if='dailyPhoto' class='daily-image-caption'>
+        <div class='daily-image-caption-wrapper'>
+          <div class='caption-copyright'>{{ dailyPhoto.copyright }}</div>
+          <div class='caption-title'>{{ dailyPhoto.title }}</div>
+          <div class='caption-date'>{{ dailyPhoto.date }}</div>
+        </div>
+      </div>
+      <div v-if='dailyPhoto' class='daily-image' :style='{ backgroundImage: `url("${dailyPhoto.hdurl}"), url("${dailyPhoto.url}")` }'></div>
+    </div>
+    
+    <script>
+      Vue.createApp({
+        data() {
+          return {
+            astronauts: [],
+            dailyPhoto: undefined
+          }
+        },
+        async mounted() {
+          const response = await fetch('http://api.open-notify.org/astros.json', { mode: 'cors' })
+
+          if (response.status != 200) {
+            console.error(response)
+            throw `Unable to retrieve astronaut data! ${response.status}`
+          }
+
+          const data = await response.json()
+          const people = data.people
+
+          this.getDailyImage()
+
+          for (const person of people) {
+            this.addPersonProperties(person)
+          }
+
+          document.title = `${people.length} Nauts in Space`
+        },
+        computed: {
+          getAstronauts() {
+            return this.astronauts.sort(function (first, second) {
+              return first.name > second.name
+            })
+          },
+        },
+        methods: {
+          async addPersonProperties(person) {
+            const wiki = await this.searchWiki(person.name)
+
+            person.photoId = wiki.pageimage
+            person.url = `https://en.wikipedia.org/?curid=${wiki.pageid}`
+
+            person.photo = wiki.original.source
+
+            this.astronauts.push(person)
+          },
+          // Search wikipedia to try and find 
+          async searchWiki(title) {
+            title = encodeURIComponent(title)
+            const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${title}&prop=pageimages&format=json&redirects=resolve&piprop=original&origin=*`
+            const response = await fetch(url, { mode: 'cors' })
+
+            // Check response code
+            if (response.status != 200) {
+              console.error(response)
+              throw `Unable to search wikipedia! ${response.status}`
+            }
+
+            // Get the data and make sure it's valid
+            const data = await response.json()
+            
+            if (data?.query?.pages?.length != 0) {
+              // get the wiki ID
+              const id = Object.keys(data.query.pages)[0]
+              
+              if (id) {
+                return data.query.pages[id]
+              }
+            }
+
+            throw 'Unable to find wikipedia article!'
+          },
+          async getDailyImage() {
+            const response = await fetch('https://api.nasa.gov/planetary/apod?api_key=OSuxiaUwfJjag0D4xW1s2lt8ZUjARhbgO6v9owNv', { mode: 'cors' })
+
+            // Check response code
+            if (response.status != 200) {
+              console.error(response)
+              throw `Unable to get daily image! ${response.status}`
+            }
+
+            const data = await response.json()
+
+            this.dailyPhoto = data
+          }
+        }
+      }).mount('#app')
+    </script>
+  </body>
+</html>
