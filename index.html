@@ -122,6 +122,7 @@
         gap: 1.5em;
         font-size: 0.7em;
         color: rgba(255, 255, 255, 0.7);
+        padding: 0 2em;
       }
 
       @keyframes naut-appear {
@@ -142,7 +143,7 @@
     <div id='app'>
       <div class='astronaut-list'>
         <a class='astronaut-entry' v-for='astronaut in getAstronauts' :href='astronaut.url' target='_blank'>
-          <div class='astronaut-photo' :style='{ backgroundImage: `url("${astronaut.photo}")` }'></div>
+          <div class='astronaut-photo' :style='{ backgroundImage: `url("${astronaut.photo}"), url("${astronaut.photoLow}")` }'></div>
           <div class='astronaut-details'>
             <div class='astronaut-details-wrapper'>
               <span class='astronaut-name'>{{ astronaut.name }}</span>
@@ -203,13 +204,14 @@
             person.url = `https://en.wikipedia.org/?curid=${wiki.pageid}`
 
             person.photo = wiki.original.source
+            person.photoLow = wiki.thumbnail.source
 
             this.astronauts.push(person)
           },
           // Search wikipedia to try and find 
           async searchWiki(title) {
             title = encodeURIComponent(title)
-            const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${title}&prop=pageimages&format=json&redirects=resolve&piprop=original&origin=*`
+            const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${title}&prop=pageimages&format=json&redirects=resolve&piprop=original|thumbnail&origin=*`
             const response = await fetch(url, { mode: 'cors' })
 
             // Check response code
